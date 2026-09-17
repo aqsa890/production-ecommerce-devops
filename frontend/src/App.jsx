@@ -39,8 +39,13 @@ export default function App() {
     try {
       const res = await fetch('/health');
       const data = await res.json();
-      if (data.backend && data.backend.connected) {
-        const dbInfo = data.backend.details?.database;
+      const isBackendUp = Boolean(
+        (data.backend && data.backend.connected) ||
+        (data.status === 'UP' && (data.tier === 'backend-api' || data.database))
+      );
+      const dbInfo = data.backend ? data.backend.details?.database : data.database;
+
+      if (isBackendUp) {
         setSystemHealth({
           frontend: 'UP',
           backend: 'UP',

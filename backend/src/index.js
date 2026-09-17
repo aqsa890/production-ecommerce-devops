@@ -2,7 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const db = require('./db');
 
-const PORT = parseInt(process.env.PORT || '5050', 10);
+const PORT = parseInt(process.env.PORT || '5001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
 async function bootstrap() {
