@@ -24,6 +24,13 @@ jobs:
         run: |
           docker load -i image-artifacts/be-image.tar
           docker load -i image-artifacts/fe-image.tar
+
+          echo "Ensuring all tags exist locally..."
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:latest
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:v1.0.0
+
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:latest
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:v1.0.0
           
           echo "Pushing backend images..."
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}

@@ -39,8 +39,14 @@ jobs:
       - name: Save Docker Images for Trivy & Push
         run: |
           mkdir -p image-artifacts
-          docker save -o image-artifacts/be-image.tar ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}
-          docker save -o image-artifacts/fe-image.tar ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }}
+          docker save -o image-artifacts/be-image.tar \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:latest \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:v1.0.0
+          docker save -o image-artifacts/fe-image.tar \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:latest \
+            ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:v1.0.0
 
       - name: Upload Built Images Artifacts
         uses: actions/upload-artifact@v4
