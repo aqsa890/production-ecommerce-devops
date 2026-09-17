@@ -16,7 +16,7 @@ spec:
       containers:
         - name: frontend
           image: rayyan12311/novastore-fe:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           resources:

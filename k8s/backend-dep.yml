@@ -16,7 +16,7 @@ spec:
       containers:
         - name: backend
           image: rayyan12311/novastore-be:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 5001
           envFrom:
