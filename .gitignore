@@ -1,0 +1,88 @@
+# =============================================================================
+# Production .gitignore - 3-Tier Node.js & DevOps Architecture
+# =============================================================================
+
+# 1. Dependency Directories
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 2. Environment Variables & Sensitive Credentials (CRITICAL - No Committed Secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Explicitly track environment templates
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# 3. Operating System & Filesystem Artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# 4. IDEs, Editors & Tooling
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# 5. Build, Output & Temporary Folders
+dist/
+build/
+out/
+.next/
+.nuxt/
+tmp/
+temp/
+scratch/
+*.tmp
+*.bak
+
+# 6. Test Reports, Coverage & Profiling
+coverage/
+.nyc_output/
+*.lcov
+junit.xml
+test-results/
+.clinic/
+
+# 7. Runtime Data, Logs & PIDs
+logs/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# 8. Local Docker & Database Volume Data
+db_data/
+postgres_data/
+prometheus_data/
+grafana_data/
+backups/
+*.sql.gz
+docker-compose.override.yml
