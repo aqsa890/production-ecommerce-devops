@@ -6,7 +6,7 @@ const cors = require('cors');
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5001';
 
 app.use(cors());
 app.use(express.json());
@@ -66,12 +66,21 @@ app.all('/api/*', async (req, res) => {
   }
 });
 
-// Serve frontend static assets
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve compiled React production build from 'dist'
+const fs = require('fs');
+const distDir = path.join(__dirname, 'dist');
 
-// Catch-all for SPA/front page
+// Serve frontend static assets
+app.use(express.static(distDir));
+
+// Catch-all for React SPA client routing
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const indexHtml = path.join(distDir, 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    res.sendFile(indexHtml);
+  } else {
+    res.status(404).send('React production build not found. Please run "npm run build" in frontend.');
+  }
 });
 
 if (require.main === module) {
