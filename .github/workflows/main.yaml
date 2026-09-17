@@ -13,72 +13,74 @@ permissions:
 
 jobs:
   # =========================================================================
-  # Phase 1: Parallel Baseline Validation (Gitleaks, SCA, Testing, Linting)
+  # Tier 1: Fast Parallel Baseline Scans (Triggered instantly at t=0)
   # =========================================================================
   gitleaks:
-    name: 1a. Gitleaks (Secrets Scan)
+    name: 1a. Gitleaks (Secrets)
     uses: ./.github/workflows/gitleaks.yaml
     secrets: inherit
 
   sca:
-    name: 1b. SCA (Snyk Dependency Scan)
+    name: 1b. SCA (Snyk Scan)
     uses: ./.github/workflows/sca.yaml
     secrets: inherit
 
   testing:
-    name: 1c. Testing (Node.js Test Runner)
+    name: 1c. Testing (Unit & Integration)
     uses: ./.github/workflows/testing.yaml
     secrets: inherit
 
   linting:
-    name: 1d. Linting (Syntax & Code Validation)
+    name: 1d. Linting (Syntax Check)
     uses: ./.github/workflows/linting.yaml
     secrets: inherit
 
+  hadolint:
+    name: 1e. Hadolint (Dockerfiles)
+    uses: ./.github/workflows/hadolint.yaml
+    secrets: inherit
+
   # =========================================================================
-  # Phase 2: Parallel Deep Security & Code Quality Analysis
+  # Tier 2: Deep Security Analysis & Early Container Build (Run in Parallel)
   # =========================================================================
   codeql:
     name: 2a. SAST (CodeQL Analysis)
     uses: ./.github/workflows/codeql.yaml
     secrets: inherit
-    needs: [gitleaks, sca, testing, linting]
+    needs: [testing, linting]
 
   sonarqube:
     name: 2b. SonarQube (Quality Gate)
     uses: ./.github/workflows/sonarqube.yaml
     secrets: inherit
-    needs: [gitleaks, sca, testing, linting]
+    needs: [testing, linting]
 
-  hadolint:
-    name: 2c. Hadolint (Dockerfile Linting)
-    uses: ./.github/workflows/hadolint.yaml
-    secrets: inherit
-    needs: [gitleaks, sca, testing, linting]
-
-  # =========================================================================
-  # Phase 3: Container Build, Trivy Security Scan & Docker Push
-  # =========================================================================
+  # Docker build starts immediately as soon as unit tests + linters pass!
   docker-build:
-    name: 3a. Docker Build
+    name: 2c. Docker Build (be & fe)
     uses: ./.github/workflows/docker.yaml
     secrets: inherit
-    needs: [codeql, sonarqube, hadolint]
+    needs: [testing, linting, hadolint]
 
+  # =========================================================================
+  # Tier 3: Container Vulnerability Scan & Unified Security Gating for Push
+  # =========================================================================
   trivy-image:
-    name: 3b. Trivy (Image Vulnerability Scan)
+    name: 3a. Trivy (Image CVE Scan)
     uses: ./.github/workflows/trivy-image.yaml
     secrets: inherit
     needs: [docker-build]
 
+  # Docker push acts as the security synchronization gate:
+  # Requires Trivy, CodeQL, SonarQube, Gitleaks & SCA all to be green!
   docker-push:
-    name: 3c. Docker Push
+    name: 3b. Docker Push (SHA + latest)
     uses: ./.github/workflows/docker-push.yaml
     secrets: inherit
-    needs: [trivy-image]
+    needs: [trivy-image, codeql, sonarqube, gitleaks, sca]
 
   # =========================================================================
-  # Phase 4: Staging Deployment, K8s Verification & Production EC2 Deploy
+  # Tier 4: Kubernetes Staging Verification & Production EC2 Deployment
   # =========================================================================
   rollback-k8s:
     name: 4a. Rollback K8s (Deploy & Verify)
@@ -87,7 +89,7 @@ jobs:
     needs: [docker-push]
 
   deploy-ec2:
-    name: 4b. Deploy on EC2 (Live Diagnostics & Rollback)
+    name: 4b. Deploy on EC2 (Live Diagnostics & Auto-Rollback)
     uses: ./.github/workflows/deploy-ec2.yaml
     secrets: inherit
     needs: [rollback-k8s]

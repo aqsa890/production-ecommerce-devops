@@ -11,24 +11,49 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set Kubernetes Context
-        uses: azure/k8s-set-context@v3
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBECONFIG }}
+      - name: Configure Kubernetes Environment
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          if echo "$KUBECONFIG_DATA" | grep -q "kind.x-k8s.io"; then
+            echo "ℹ️ KinD cluster config detected in KUBECONFIG secret. Creating KinD cluster..."
+            echo "$KUBECONFIG_DATA" > /tmp/kind-config.yaml
+            if ! command -v kind &> /dev/null; then
+              curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+              chmod +x ./kind
+              sudo mv ./kind /usr/local/bin/kind
+            fi
+            kind create cluster --name novastore-cluster --config /tmp/kind-config.yaml
+          elif echo "$KUBECONFIG_DATA" | grep -q "apiVersion: v1"; then
+            echo "ℹ️ Standard Kubernetes Kubeconfig detected. Configuring context..."
+            echo "$KUBECONFIG_DATA" > ~/.kube/config
+            chmod 600 ~/.kube/config
+          else
+            echo "ℹ️ Setting up local KinD cluster for workflow deployment and rollback verification..."
+            if ! command -v kind &> /dev/null; then
+              curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+              chmod +x ./kind
+              sudo mv ./kind /usr/local/bin/kind
+            fi
+            kind create cluster --name novastore-cluster
+          fi
+          
+          echo "=== Cluster Connectivity Info ==="
+          kubectl cluster-info
 
       - name: Dry-Run Manifest Validation
         run: |
-          echo "Validating Kubernetes manifests..."
+          echo "=== Validating Kubernetes Manifests (Dry-Run) ==="
           kubectl apply --dry-run=client -f k8s/
 
-      - name: Deploy Workloads & Monitor Rollout (with Auto-Rollback)
+      - name: Deploy Workloads & Verify Rollout (with Auto-Rollback)
         run: |
           NAMESPACE="novestore-ns"
           BE_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}"
           FE_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }}"
 
-          echo "Ensuring namespace and baseline storage/services exist..."
+          echo "=== Applying Namespaces, ConfigMaps & Storage ==="
           kubectl apply -f k8s/namespace.yml
           kubectl apply -f k8s/config-map.yml
           kubectl apply -f k8s/postgres-storage.yml
@@ -38,30 +63,30 @@ jobs:
           kubectl apply -f k8s/frontend-svc.yml
           kubectl apply -f k8s/hpa.yml
 
-          echo "Applying deployment manifests..."
+          echo "=== Deploying Workloads ==="
           kubectl apply -f k8s/backend-dep.yml
           kubectl apply -f k8s/frontend-dep.yml
 
-          echo "Setting container images to newly built tag: ${{ github.sha }}..."
+          echo "=== Updating Image Tags to: ${{ github.sha }} ==="
           kubectl set image deployment/backend-deployment backend=$BE_IMAGE -n $NAMESPACE
           kubectl set image deployment/frontend-deployment frontend=$FE_IMAGE -n $NAMESPACE
 
-          echo "Monitoring Backend rollout status..."
-          if ! kubectl rollout status deployment/backend-deployment -n $NAMESPACE --timeout=120s; then
-            echo "❌ Backend rollout timed out or failed! Executing automatic rollback..."
+          echo "=== Monitoring Backend Rollout Status ==="
+          if ! kubectl rollout status deployment/backend-deployment -n $NAMESPACE --timeout=90s; then
+            echo "❌ Backend rollout failed or timed out! Executing automated rollback..."
             kubectl rollout undo deployment/backend-deployment -n $NAMESPACE
             kubectl get pods -n $NAMESPACE
             kubectl describe deployment/backend-deployment -n $NAMESPACE
             exit 1
           fi
 
-          echo "Monitoring Frontend rollout status..."
-          if ! kubectl rollout status deployment/frontend-deployment -n $NAMESPACE --timeout=120s; then
-            echo "❌ Frontend rollout timed out or failed! Executing automatic rollback..."
+          echo "=== Monitoring Frontend Rollout Status ==="
+          if ! kubectl rollout status deployment/frontend-deployment -n $NAMESPACE --timeout=90s; then
+            echo "❌ Frontend rollout failed or timed out! Executing automated rollback..."
             kubectl rollout undo deployment/frontend-deployment -n $NAMESPACE
             kubectl get pods -n $NAMESPACE
             kubectl describe deployment/frontend-deployment -n $NAMESPACE
             exit 1
           fi
 
-          echo "✅ Kubernetes deployment and health verification passed with zero rollback required!"
+          echo "✅ Kubernetes deployment and health verification passed successfully with zero rollback needed!"
