@@ -12,85 +12,82 @@ permissions:
   security-events: write
 
 jobs:
-  # Stage 1: Secrets Scanning
+  # =========================================================================
+  # Phase 1: Parallel Baseline Validation (Gitleaks, SCA, Testing, Linting)
+  # =========================================================================
   gitleaks:
-    name: 1. Gitleaks
+    name: 1a. Gitleaks (Secrets Scan)
     uses: ./.github/workflows/gitleaks.yaml
     secrets: inherit
 
-  # Stage 2a: Linting
-  linting:
-    name: 2a. Linting
-    uses: ./.github/workflows/linting.yaml
-    secrets: inherit
-    needs: [gitleaks]
-
-  # Stage 2b: Testing
-  testing:
-    name: 2b. Testing
-    uses: ./.github/workflows/testing.yaml
-    secrets: inherit
-    needs: [linting]
-
-  # Stage 3: SAST (Static Application Security Testing)
-  codeql:
-    name: 3. SAST (CodeQL)
-    uses: ./.github/workflows/codeql.yaml
-    secrets: inherit
-    needs: [testing]
-
-  # Stage 4a: SCA (Software Composition Analysis)
   sca:
-    name: 4a. SCA (Snyk)
+    name: 1b. SCA (Snyk Dependency Scan)
     uses: ./.github/workflows/sca.yaml
     secrets: inherit
-    needs: [codeql]
 
-  # Stage 4b: SonarQube Code Quality & Security Scan
+  testing:
+    name: 1c. Testing (Node.js Test Runner)
+    uses: ./.github/workflows/testing.yaml
+    secrets: inherit
+
+  linting:
+    name: 1d. Linting (Syntax & Code Validation)
+    uses: ./.github/workflows/linting.yaml
+    secrets: inherit
+
+  # =========================================================================
+  # Phase 2: Parallel Deep Security & Code Quality Analysis
+  # =========================================================================
+  codeql:
+    name: 2a. SAST (CodeQL Analysis)
+    uses: ./.github/workflows/codeql.yaml
+    secrets: inherit
+    needs: [gitleaks, sca, testing, linting]
+
   sonarqube:
-    name: 4b. SonarQube
+    name: 2b. SonarQube (Quality Gate)
     uses: ./.github/workflows/sonarqube.yaml
     secrets: inherit
-    needs: [sca]
+    needs: [gitleaks, sca, testing, linting]
 
-  # Stage 5: Hadolint Dockerfile Linter
   hadolint:
-    name: 5. Hadolint
+    name: 2c. Hadolint (Dockerfile Linting)
     uses: ./.github/workflows/hadolint.yaml
     secrets: inherit
-    needs: [sonarqube]
+    needs: [gitleaks, sca, testing, linting]
 
-  # Stage 6: Multi-Tier Docker Image Build
+  # =========================================================================
+  # Phase 3: Container Build, Trivy Security Scan & Docker Push
+  # =========================================================================
   docker-build:
-    name: 6. Docker Build
+    name: 3a. Docker Build
     uses: ./.github/workflows/docker.yaml
     secrets: inherit
-    needs: [hadolint]
+    needs: [codeql, sonarqube, hadolint]
 
-  # Stage 7: Trivy Container Vulnerability Scan
   trivy-image:
-    name: 7. Trivy
+    name: 3b. Trivy (Image Vulnerability Scan)
     uses: ./.github/workflows/trivy-image.yaml
     secrets: inherit
     needs: [docker-build]
 
-  # Stage 8: Docker Hub Registry Push
   docker-push:
-    name: 8. Docker Push
+    name: 3c. Docker Push
     uses: ./.github/workflows/docker-push.yaml
     secrets: inherit
     needs: [trivy-image]
 
-  # Stage 9: Kubernetes Staging Deploy & Automated Rollback
+  # =========================================================================
+  # Phase 4: Staging Deployment, K8s Verification & Production EC2 Deploy
+  # =========================================================================
   rollback-k8s:
-    name: 9. Rollback K8s
+    name: 4a. Rollback K8s (Deploy & Verify)
     uses: ./.github/workflows/rollback-k8s.yaml
     secrets: inherit
     needs: [docker-push]
 
-  # Stage 10: Production EC2 Deployment & Live Diagnostics
   deploy-ec2:
-    name: 10. Deploy on EC2
+    name: 4b. Deploy on EC2 (Live Diagnostics & Rollback)
     uses: ./.github/workflows/deploy-ec2.yaml
     secrets: inherit
     needs: [rollback-k8s]
