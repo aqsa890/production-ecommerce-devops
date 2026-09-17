@@ -111,7 +111,7 @@ jobs:
 
             echo "=== Performing Live Health Check Diagnostics ==="
             HEALTH_PASSED=false
-            for i in $(seq 1 15); do
+            for i in $(seq 1 15); do 
               sleep 4
               if curl -s -f http://127.0.0.1:80/nginx-health > /dev/null && curl -s -f http://127.0.0.1:5001/health > /dev/null; then
                 echo "✅ Health checks passed on attempt $i!"
