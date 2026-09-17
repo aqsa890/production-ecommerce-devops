@@ -1,0 +1,24 @@
+{
+  "name": "ecommerce-frontend",
+  "version": "1.0.0",
+  "description": "Tier 1: Production E-Commerce Web Storefront UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/frontend.test.js"
+  },
+  "keywords": [
+    "frontend",
+    "ecommerce",
+    "storefront",
+    "ui"
+  ],
+  "author": "DevOps Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

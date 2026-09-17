@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaStore - 3-Tier Production E-Commerce</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top 3-Tier Architecture Status Bar -->
+  <header class="top-bar">
+    <div class="container top-bar-content">
+      <div class="tier-badges">
+        <span class="badge-item">
+          <span class="dot healthy"></span> <strong>Tier 1:</strong> Frontend (Port 3000)
+        </span>
+        <span class="badge-divider">|</span>
+        <span class="badge-item">
+          <span class="dot" id="backend-dot"></span> <strong>Tier 2:</strong> Backend API (<span id="backend-status-text">Checking...</span>)
+        </span>
+        <span class="badge-divider">|</span>
+        <span class="badge-item">
+          <span class="dot" id="db-dot"></span> <strong>Tier 3:</strong> Database (<span id="db-status-text">Checking...</span>)
+        </span>
+      </div>
+      <div class="top-links">
+        <a href="/health" target="_blank" class="badge-link">🩺 /health</a>
+        <a href="http://localhost:5000/metrics" target="_blank" class="badge-link" id="metrics-link">📊 /metrics</a>
+        <a href="/api/products" target="_blank" class="badge-link">📦 /api/products</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Header -->
+  <nav class="navbar">
+    <div class="container nav-content">
+      <a href="/" class="logo">
+        <span class="logo-icon">⚡</span> Nova<span class="logo-accent">Store</span>
+      </a>
+
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Search gadgets, accessories, electronics...">
+        <button id="search-btn">Search</button>
+      </div>
+
+      <div class="nav-actions">
+        <button class="cart-btn" id="cart-toggle-btn">
+          🛒 Cart (<span id="cart-count">0</span>)
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Category Filter Bar -->
+  <section class="category-section">
+    <div class="container category-chips" id="category-chips">
+      <button class="chip active" data-category="">All Categories</button>
+      <button class="chip" data-category="Electronics">Electronics</button>
+      <button class="chip" data-category="Wearables">Wearables</button>
+      <button class="chip" data-category="Computers">Computers</button>
+      <button class="chip" data-category="Accessories">Accessories</button>
+    </div>
+  </section>
+
+  <!-- Main Product Showcase -->
+  <main class="container main-content">
+    <div class="section-header">
+      <div>
+        <h2 id="catalog-title">Product Catalog</h2>
+        <p class="catalog-subtitle">3-Tier Architecture E-Commerce Showcase</p>
+      </div>
+      <span class="product-count" id="product-count-label">Loading products...</span>
+    </div>
+
+    <div class="products-grid" id="products-grid">
+      <!-- Injected via JavaScript -->
+    </div>
+  </main>
+
+  <!-- Shopping Cart Modal -->
+  <div class="modal-overlay" id="cart-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Shopping Cart</h3>
+        <button class="close-btn" id="close-cart-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="cart-items-container">
+        <p class="empty-cart-msg">Your cart is empty.</p>
+      </div>
+      <div class="modal-footer" id="cart-footer">
+        <div class="cart-total-row">
+          <span>Order Total:</span>
+          <span class="cart-total-amount" id="cart-total-amount">$0.00</span>
+        </div>
+
+        <!-- Checkout Form -->
+        <form id="checkout-form" class="checkout-form">
+          <h4>Customer Checkout (Tier 2 API Call)</h4>
+          <div class="form-group">
+            <input type="text" id="cust-name" placeholder="Full Name" required>
+          </div>
+          <div class="form-group">
+            <input type="email" id="cust-email" placeholder="Email Address" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="checkout-btn">
+            Place Order
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <footer class="footer">
+    <div class="container footer-content">
+      <p>&copy; 2026 NovaStore E-Commerce • Designed for DevOps Practical Testing</p>
+      <p class="footer-sub">Tier 1: Frontend (Node/Express) • Tier 2: Backend API (Express/Prometheus) • Tier 3: Database (PostgreSQL/SQL Seed)</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
