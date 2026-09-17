@@ -1,0 +1,36 @@
+name: Testing
+
+on:
+  workflow_call:
+
+jobs:
+  testing:
+    name: Node.js Automated Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Run Backend Tests (Node.js Test Runner)
+        run: |
+          echo "=== Running Backend Automated Tests ==="
+          cd backend
+          npm ci
+          npm test
+
+      - name: Build and Run Frontend Tests
+        run: |
+          echo "=== Building Frontend React Bundle & Running Tests ==="
+          cd frontend
+          npm ci
+          npm run build
+          npm test

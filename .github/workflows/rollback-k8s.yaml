@@ -1,0 +1,67 @@
+name: Rollback K8s
+
+on:
+  workflow_call:
+
+jobs:
+  rollback-k8s:
+    name: Kubernetes Deploy & Rollback Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Dry-Run Manifest Validation
+        run: |
+          echo "Validating Kubernetes manifests..."
+          kubectl apply --dry-run=client -f k8s/
+
+      - name: Deploy Workloads & Monitor Rollout (with Auto-Rollback)
+        run: |
+          NAMESPACE="novestore-ns"
+          BE_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}"
+          FE_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }}"
+
+          echo "Ensuring namespace and baseline storage/services exist..."
+          kubectl apply -f k8s/namespace.yml
+          kubectl apply -f k8s/config-map.yml
+          kubectl apply -f k8s/postgres-storage.yml
+          kubectl apply -f k8s/postgress-svc.yml
+          kubectl apply -f k8s/postgress-dep.yml
+          kubectl apply -f k8s/backend-svc.yml
+          kubectl apply -f k8s/frontend-svc.yml
+          kubectl apply -f k8s/hpa.yml
+
+          echo "Applying deployment manifests..."
+          kubectl apply -f k8s/backend-dep.yml
+          kubectl apply -f k8s/frontend-dep.yml
+
+          echo "Setting container images to newly built tag: ${{ github.sha }}..."
+          kubectl set image deployment/backend-deployment backend=$BE_IMAGE -n $NAMESPACE
+          kubectl set image deployment/frontend-deployment frontend=$FE_IMAGE -n $NAMESPACE
+
+          echo "Monitoring Backend rollout status..."
+          if ! kubectl rollout status deployment/backend-deployment -n $NAMESPACE --timeout=120s; then
+            echo "❌ Backend rollout timed out or failed! Executing automatic rollback..."
+            kubectl rollout undo deployment/backend-deployment -n $NAMESPACE
+            kubectl get pods -n $NAMESPACE
+            kubectl describe deployment/backend-deployment -n $NAMESPACE
+            exit 1
+          fi
+
+          echo "Monitoring Frontend rollout status..."
+          if ! kubectl rollout status deployment/frontend-deployment -n $NAMESPACE --timeout=120s; then
+            echo "❌ Frontend rollout timed out or failed! Executing automatic rollback..."
+            kubectl rollout undo deployment/frontend-deployment -n $NAMESPACE
+            kubectl get pods -n $NAMESPACE
+            kubectl describe deployment/frontend-deployment -n $NAMESPACE
+            exit 1
+          fi
+
+          echo "✅ Kubernetes deployment and health verification passed with zero rollback required!"

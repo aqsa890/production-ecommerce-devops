@@ -1,0 +1,17 @@
+title = "Gitleaks Configuration for NovaStore"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for build artifacts, lockfiles, and test mocks"
+paths = [
+    '''(^|/)package-lock\.json$''',
+    '''(^|/)dist/.*$''',
+    '''(^|/)node_modules/.*$''',
+    '''(^|/)tests/test-helper\.js$'''
+]
+regexes = [
+    '''postgrespassword''',
+    '''postgres:postgres'''
+]

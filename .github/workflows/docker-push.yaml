@@ -1,0 +1,38 @@
+name: Docker Push
+
+on:
+  workflow_call:
+
+jobs:
+  docker-push:
+    name: Push Verified Images to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Built Images
+        uses: actions/download-artifact@v4
+        with:
+          name: built-docker-images
+          path: image-artifacts
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Load & Push Docker Images
+        run: |
+          docker load -i image-artifacts/be-image.tar
+          docker load -i image-artifacts/fe-image.tar
+          
+          echo "Pushing backend images..."
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:v1.0.0
+          
+          echo "Pushing frontend images..."
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:v1.0.0
+          
+          echo "✅ All verified images pushed to Docker Hub successfully!"

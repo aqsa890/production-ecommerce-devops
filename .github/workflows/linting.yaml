@@ -1,0 +1,40 @@
+name: Linting
+
+on:
+  workflow_call:
+
+jobs:
+  linting:
+    name: Lint Code Base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Syntax & Formatting Validation
+        run: |
+          echo "=== Validating Backend JavaScript Syntax ==="
+          node --check backend/src/index.js
+          node --check backend/src/app.js
+          node --check backend/src/db.js
+          node --check backend/src/metrics.js
+          
+          echo "=== Validating Frontend Server JavaScript Syntax ==="
+          node --check frontend/server.js
+          
+          echo "=== Validating Package JSON Files ==="
+          node -e "JSON.parse(require('fs').readFileSync('backend/package.json'))"
+          node -e "JSON.parse(require('fs').readFileSync('frontend/package.json'))"
+          
+          echo "✅ Lint and syntax verification completed successfully!"

@@ -1,0 +1,58 @@
+name: Trivy Image Scan
+
+on:
+  workflow_call:
+
+jobs:
+  trivy-image:
+    name: Trivy Docker Images Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Download Built Images
+        uses: actions/download-artifact@v4
+        with:
+          name: built-docker-images
+          path: image-artifacts
+
+      - name: Load Images into Docker Daemon
+        run: |
+          docker load -i image-artifacts/be-image.tar
+          docker load -i image-artifacts/fe-image.tar
+
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ secrets.DOCKERHUB_USERNAME }}/novastore-be:${{ github.sha }}"
+          format: "sarif"
+          output: "trivy-be-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+
+      - name: Upload Backend Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: "trivy-be-results.sarif"
+          category: "trivy-backend"
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ secrets.DOCKERHUB_USERNAME }}/novastore-fe:${{ github.sha }}"
+          format: "sarif"
+          output: "trivy-fe-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+
+      - name: Upload Frontend Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: "trivy-fe-results.sarif"
+          category: "trivy-frontend"

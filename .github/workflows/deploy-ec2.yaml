@@ -1,0 +1,136 @@
+name: Deploy on EC2
+
+on:
+  workflow_call:
+
+jobs:
+  deploy-ec2:
+    name: Deploy to EC2 Production Instance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy and Verify on EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DOCKERHUB_USERNAME,IMAGE_TAG
+          script: |
+            set -e
+            APP_DIR="/home/${{ secrets.EC2_USERNAME }}/novastore"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            echo "=== Checking Previous Image State for Safety ==="
+            PREV_BE=$(docker inspect --format='{{.Config.Image}}' novastore_backend 2>/dev/null || echo "")
+            PREV_FE=$(docker inspect --format='{{.Config.Image}}' novastore_frontend 2>/dev/null || echo "")
+
+            echo "=== Logging into DockerHub ==="
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            echo "=== Pulling Production Images for Tag: $IMAGE_TAG ==="
+            docker pull ${DOCKERHUB_USERNAME}/novastore-be:${IMAGE_TAG}
+            docker pull ${DOCKERHUB_USERNAME}/novastore-fe:${IMAGE_TAG}
+            docker tag ${DOCKERHUB_USERNAME}/novastore-be:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/novastore-be:latest
+            docker tag ${DOCKERHUB_USERNAME}/novastore-fe:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/novastore-fe:latest
+
+            echo "=== Creating/Updating docker-compose.yml ==="
+            cat << 'EOF' > docker-compose.yml
+            version: '3.8'
+            services:
+              frontend:
+                image: ${DOCKERHUB_USERNAME}/novastore-fe:latest
+                container_name: novastore_frontend
+                restart: unless-stopped
+                ports:
+                  - "80:80"
+                  - "3000:80"
+                depends_on:
+                  backend:
+                    condition: service_healthy
+                networks:
+                  - ecommerce-net
+
+              backend:
+                image: ${DOCKERHUB_USERNAME}/novastore-be:latest
+                container_name: novastore_backend
+                restart: unless-stopped
+                ports:
+                  - "5001:5001"
+                environment:
+                  - PORT=5001
+                  - HOST=0.0.0.0
+                  - NODE_ENV=production
+                  - DB_HOST=db
+                  - DB_PORT=5432
+                  - DB_USER=postgres
+                  - DB_PASSWORD=postgres
+                  - DB_NAME=ecommerce
+                depends_on:
+                  db:
+                    condition: service_healthy
+                networks:
+                  - ecommerce-net
+
+              db:
+                image: postgres:15-alpine
+                container_name: novastore_db
+                restart: unless-stopped
+                environment:
+                  - POSTGRES_USER=postgres
+                  - POSTGRES_PASSWORD=postgres
+                  - POSTGRES_DB=ecommerce
+                volumes:
+                  - postgres_data:/var/lib/postgresql/data
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U postgres -d ecommerce"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 5
+                  start_period: 5s
+                networks:
+                  - ecommerce-net
+
+            networks:
+              ecommerce-net:
+                driver: bridge
+
+            volumes:
+              postgres_data:
+                driver: local
+            EOF
+
+            echo "=== Starting Up Containers ==="
+            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME} docker compose up -d --remove-orphans
+
+            echo "=== Performing Live Health Check Diagnostics ==="
+            HEALTH_PASSED=false
+            for i in $(seq 1 15); do
+              sleep 4
+              if curl -s -f http://127.0.0.1:80/nginx-health > /dev/null && curl -s -f http://127.0.0.1:5001/health > /dev/null; then
+                echo "✅ Health checks passed on attempt $i!"
+                HEALTH_PASSED=true
+                break
+              fi
+              echo "Waiting for services to become healthy... (attempt $i/15)"
+            done
+
+            if [ "$HEALTH_PASSED" != "true" ]; then
+              echo "❌ Health check failed! Rolling back to previous images..."
+              if [ -n "$PREV_BE" ] && [ -n "$PREV_FE" ]; then
+                docker tag $PREV_BE ${DOCKERHUB_USERNAME}/novastore-be:latest
+                docker tag $PREV_FE ${DOCKERHUB_USERNAME}/novastore-fe:latest
+                DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME} docker compose up -d
+                echo "Rolled back to previous image versions: $PREV_BE, $PREV_FE"
+              fi
+              docker compose logs --tail=50
+              exit 1
+            fi
+
+            echo "🎉 EC2 production deployment verified and online!"
