@@ -1,0 +1,30 @@
+{
+  "name": "ecommerce-backend",
+  "version": "1.0.0",
+  "description": "Tier 2: Production E-Commerce Backend API Service with Telemetry",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/api.test.js"
+  },
+  "keywords": [
+    "backend",
+    "express",
+    "postgresql",
+    "prometheus",
+    "devops"
+  ],
+  "author": "DevOps Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "prom-client": "^15.1.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}
